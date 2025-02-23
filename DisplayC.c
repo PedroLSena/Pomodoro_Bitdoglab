@@ -14,6 +14,7 @@
 #define LED_PIN_G   11
 #define LED_PIN_R   13
 #define BUTTON_START 5
+#define BUTTON_PAUSE 6 // Novo botão para pausar/despausar
 #define BUZZER_PIN 21  // Define o pino do buzzer
 
 #define WORK_TIME  1 * 60  // 25 minutos em segundos
@@ -22,6 +23,7 @@
 bool is_working = true;
 int time_left = WORK_TIME;
 bool running = false;
+bool paused = false; // Nova variável para controlar o estado de pausa
 
 void update_display(ssd1306_t* ssd) {
     char buffer[20];
@@ -39,9 +41,24 @@ void update_display(ssd1306_t* ssd) {
 }
 
 void button_irq(uint gpio, uint32_t events) {
-    running = !running;
-    if (!running) {
-        time_left = is_working ? WORK_TIME : BREAK_TIME;
+    if (gpio == BUTTON_START) {
+        // Inicia ou reseta o timer quando o botão de start é pressionado
+        if (!running) {
+            running = true;
+            time_left = is_working ? WORK_TIME : BREAK_TIME;
+        } else {
+            running = false; // Reseta o timer
+            time_left = is_working ? WORK_TIME : BREAK_TIME;
+        }
+    } 
+    else if (gpio == BUTTON_PAUSE) {
+        // Pausa ou despausa o timer quando o botão de pausa é pressionado
+        paused = !paused;
+        if (paused) {
+            running = false; // Pausa o timer
+        } else {
+            running = true; // Retorna o timer ao funcionamento
+        }
     }
 }
 
@@ -82,11 +99,16 @@ int main() {
     gpio_pull_up(BUTTON_START);
     gpio_set_irq_enabled_with_callback(BUTTON_START, GPIO_IRQ_EDGE_FALL, true, &button_irq);
     
+    gpio_init(BUTTON_PAUSE);
+    gpio_set_dir(BUTTON_PAUSE, GPIO_IN);
+    gpio_pull_up(BUTTON_PAUSE);
+    gpio_set_irq_enabled_with_callback(BUTTON_PAUSE, GPIO_IRQ_EDGE_FALL, true, &button_irq);
+
     gpio_init(BUZZER_PIN);
     gpio_set_dir(BUZZER_PIN, GPIO_OUT);
 
     while (true) {
-        if (running) {
+        if (running && !paused) {
             if (time_left > 0) {
                 time_left--;
                 gpio_put(LED_PIN_G, is_working);
