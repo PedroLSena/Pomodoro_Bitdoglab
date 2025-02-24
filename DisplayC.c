@@ -27,6 +27,19 @@ int time_left;
 bool running = false;
 bool paused = false;
 
+void setup_pwm(uint pin) {
+    gpio_set_function(pin, GPIO_FUNC_PWM);
+    uint slice_num = pwm_gpio_to_slice_num(pin);
+    pwm_set_wrap(slice_num, 255);  // Resolução de 8 bits (0-255)
+    pwm_set_clkdiv(slice_num, 64.0);
+    pwm_set_enabled(slice_num, true);
+}
+
+void set_led_brightness(uint pin, uint8_t brightness) {
+    uint slice_num = pwm_gpio_to_slice_num(pin);
+    pwm_set_gpio_level(pin, brightness);
+}
+
 void update_display(ssd1306_t* ssd) {
     char buffer[20];
     int minutes = time_left / 60;
@@ -109,10 +122,8 @@ int main() {
     ssd1306_init(&ssd, 128, 64, false, DISPLAY_ADDR, I2C_PORT);
     ssd1306_config(&ssd);
     
-    gpio_init(LED_PIN_G);
-    gpio_set_dir(LED_PIN_G, GPIO_OUT);
-    gpio_init(LED_PIN_R);
-    gpio_set_dir(LED_PIN_R, GPIO_OUT);
+    setup_pwm(LED_PIN_G);
+    setup_pwm(LED_PIN_R);
     
     gpio_init(BUTTON_START);
     gpio_set_dir(BUTTON_START, GPIO_IN);
@@ -136,21 +147,21 @@ int main() {
         check_joystick();
         
         if (paused) {
-            gpio_put(LED_PIN_G, 1);
-            gpio_put(LED_PIN_R, 1); 
+            set_led_brightness(LED_PIN_G, 128);  // 50% do brilho
+            set_led_brightness(LED_PIN_R, 128);
         } else if (running) {
             if (time_left > 0) {
                 time_left--;
-                gpio_put(LED_PIN_G, is_working);
-                gpio_put(LED_PIN_R, !is_working);
+                set_led_brightness(LED_PIN_G, is_working ? 50 : 0);
+                set_led_brightness(LED_PIN_R, is_working ? 0 : 50);
             } else {
                 play_buzzer();
                 is_working = !is_working;
                 time_left = is_working ? work_time : break_time;
             }
         } else {
-            gpio_put(LED_PIN_G, 0);
-            gpio_put(LED_PIN_R, 0);
+            set_led_brightness(LED_PIN_G, 0);
+            set_led_brightness(LED_PIN_R, 0);
         }
         
         update_display(&ssd);
