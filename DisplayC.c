@@ -3,6 +3,7 @@
 #include "hardware/i2c.h"
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
+#include "hardware/adc.h"
 #include "inc/ssd1306.h"
 #include "hardware/clocks.h"
 
@@ -14,16 +15,18 @@
 #define LED_PIN_G   11
 #define LED_PIN_R   13
 #define BUTTON_START 5
-#define BUTTON_PAUSE 6 // Novo botão para pausar/despausar
-#define BUZZER_PIN 21  // Define o pino do buzzer
+#define BUTTON_PAUSE 6
+#define BUZZER_PIN  21
 
-#define WORK_TIME  1 * 60  // 25 minutos em segundos
-#define BREAK_TIME 1 * 60  // 5 minutos em segundos
+#define JOY_Y 27  // Pino do eixo Y do joystick
+
+#define WORK_TIME  1 * 60  
+#define BREAK_TIME 1 * 60  
 
 bool is_working = true;
 int time_left = WORK_TIME;
 bool running = false;
-bool paused = false; // Nova variável para controlar o estado de pausa
+bool paused = false;
 
 void update_display(ssd1306_t* ssd) {
     char buffer[20];
@@ -42,27 +45,20 @@ void update_display(ssd1306_t* ssd) {
 
 void button_irq(uint gpio, uint32_t events) {
     if (gpio == BUTTON_START) {
-        // Inicia ou reseta o timer quando o botão de start é pressionado
         if (!running) {
             running = true;
             time_left = is_working ? WORK_TIME : BREAK_TIME;
         } else {
-            running = false; // Reseta o timer
+            running = false;
             time_left = is_working ? WORK_TIME : BREAK_TIME;
         }
     } 
     else if (gpio == BUTTON_PAUSE) {
-        // Pausa ou despausa o timer quando o botão de pausa é pressionado
         paused = !paused;
-        if (paused) {
-            running = false; // Pausa o timer
-        } else {
-            running = true; // Retorna o timer ao funcionamento
-        }
+        running = !paused;
     }
 }
 
-// Função para tocar o buzzer
 void play_buzzer() {
     gpio_set_function(BUZZER_PIN, GPIO_FUNC_PWM);
     uint slice_num = pwm_gpio_to_slice_num(BUZZER_PIN);
@@ -72,8 +68,21 @@ void play_buzzer() {
     pwm_set_gpio_level(BUZZER_PIN, 6250);
     pwm_set_enabled(slice_num, true);
     
-    sleep_ms(500); // Tempo do som do buzzer
+    sleep_ms(500);
     pwm_set_enabled(slice_num, false);
+}
+
+void check_joystick() {
+    adc_select_input(1);  // Seleciona o canal ADC correspondente ao eixo Y
+    uint16_t joy_y = adc_read();
+    
+    if (joy_y > 3000) {
+        time_left += 60;  // Adiciona um minuto
+        sleep_ms(300);
+    } else if (joy_y < 1000 && time_left > 60) {
+        time_left -= 60;  // Diminui um minuto, garantindo que não fique negativo
+        sleep_ms(300);
+    }
 }
 
 int main() {
@@ -106,15 +115,20 @@ int main() {
 
     gpio_init(BUZZER_PIN);
     gpio_set_dir(BUZZER_PIN, GPIO_OUT);
-
+    
+    adc_init();
+    adc_gpio_init(JOY_Y);
+    
     while (true) {
+        check_joystick();
+        
         if (running && !paused) {
             if (time_left > 0) {
                 time_left--;
                 gpio_put(LED_PIN_G, is_working);
                 gpio_put(LED_PIN_R, !is_working);
             } else {
-                play_buzzer();  // Toca o buzzer quando o tempo acabar
+                play_buzzer();
                 is_working = !is_working;
                 time_left = is_working ? WORK_TIME : BREAK_TIME;
             }

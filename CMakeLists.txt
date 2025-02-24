@@ -64,6 +64,7 @@ target_link_libraries(DisplayC
         hardware_clocks
         hardware_gpio
         hardware_pwm
+        hardware_adc
         )
 
 pico_add_extra_outputs(DisplayC)
