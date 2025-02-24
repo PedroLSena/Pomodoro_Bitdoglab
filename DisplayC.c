@@ -20,11 +20,10 @@
 
 #define JOY_Y 27  // Pino do eixo Y do joystick
 
-#define WORK_TIME  1 * 60  
-#define BREAK_TIME 1 * 60  
-
+int work_time = 1 * 60;  
+int break_time = 1 * 60;  
 bool is_working = true;
-int time_left = WORK_TIME;
+int time_left;
 bool running = false;
 bool paused = false;
 
@@ -35,10 +34,10 @@ void update_display(ssd1306_t* ssd) {
     
     ssd1306_fill(ssd, false);
     sprintf(buffer, "%s", is_working ? "Trabalho" : "Descanso");
-    ssd1306_draw_string(ssd, buffer, 10, 10);
+    ssd1306_draw_string(ssd, buffer, 30, 10);
     
     sprintf(buffer, "%02d:%02d", minutes, seconds);
-    ssd1306_draw_string(ssd, buffer, 40, 30);
+    ssd1306_draw_string(ssd, buffer, 45, 30);
     
     ssd1306_send_data(ssd);
 }
@@ -47,10 +46,10 @@ void button_irq(uint gpio, uint32_t events) {
     if (gpio == BUTTON_START) {
         if (!running) {
             running = true;
-            time_left = is_working ? WORK_TIME : BREAK_TIME;
+            time_left = is_working ? work_time : break_time;
         } else {
             running = false;
-            time_left = is_working ? WORK_TIME : BREAK_TIME;
+            time_left = is_working ? work_time : break_time;
         }
     } 
     else if (gpio == BUTTON_PAUSE) {
@@ -73,14 +72,26 @@ void play_buzzer() {
 }
 
 void check_joystick() {
-    adc_select_input(1);  // Seleciona o canal ADC correspondente ao eixo Y
+    adc_select_input(1);  
     uint16_t joy_y = adc_read();
     
     if (joy_y > 3000) {
-        time_left += 60;  // Adiciona um minuto
+        if (is_working) {
+            work_time += 60;  
+            time_left = work_time;  
+        } else {
+            break_time += 60;  
+            time_left = break_time;  
+        }
         sleep_ms(300);
-    } else if (joy_y < 1000 && time_left > 60) {
-        time_left -= 60;  // Diminui um minuto, garantindo que não fique negativo
+    } else if (joy_y < 1000) {
+        if (is_working && work_time > 60) {
+            work_time -= 60;
+            time_left = work_time;
+        } else if (!is_working && break_time > 60) {
+            break_time -= 60;
+            time_left = break_time;
+        }
         sleep_ms(300);
     }
 }
@@ -119,10 +130,15 @@ int main() {
     adc_init();
     adc_gpio_init(JOY_Y);
     
+    time_left = work_time;  
+
     while (true) {
         check_joystick();
         
-        if (running && !paused) {
+        if (paused) {
+            gpio_put(LED_PIN_G, 1);
+            gpio_put(LED_PIN_R, 1); 
+        } else if (running) {
             if (time_left > 0) {
                 time_left--;
                 gpio_put(LED_PIN_G, is_working);
@@ -130,8 +146,11 @@ int main() {
             } else {
                 play_buzzer();
                 is_working = !is_working;
-                time_left = is_working ? WORK_TIME : BREAK_TIME;
+                time_left = is_working ? work_time : break_time;
             }
+        } else {
+            gpio_put(LED_PIN_G, 0);
+            gpio_put(LED_PIN_R, 0);
         }
         
         update_display(&ssd);
