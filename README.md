@@ -1,6 +1,6 @@
 # Timer Pomodoro - BitDogLab
 
-Vídeo de ensaio:[https://youtu.be/GT eZVxj5ex0](https://youtu.be/GT eZVxj5ex0)
+Vídeo de ensaio:[https://youtu.be/GTeZVxj5ex0](https://youtu.be/GTeZVxj5ex0)
 
 Este projeto implementa um Timer Pomodoro utilizando a placa de desenvolvimento **BitDogLab**, com um display OLED, botões para controle e um joystick para ajuste do tempo.
 
