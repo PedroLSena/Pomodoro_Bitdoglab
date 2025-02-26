@@ -85,27 +85,29 @@ void play_buzzer() {
 }
 
 void check_joystick() {
-    adc_select_input(1);  
-    uint16_t joy_y = adc_read();
-    
-    if (joy_y > 3000) {
-        if (is_working) {
-            work_time += 60;  
-            time_left = work_time;  
-        } else {
-            break_time += 60;  
-            time_left = break_time;  
+    if (!running || paused) {  // Permitir ajuste apenas antes de iniciar ou durante a pausa
+        adc_select_input(1);  
+        uint16_t joy_y = adc_read();
+        
+        if (joy_y > 3000) {
+            if (is_working) {
+                work_time += 60;  
+                time_left = work_time;  
+            } else {
+                break_time += 60;  
+                time_left = break_time;  
+            }
+            sleep_ms(300);
+        } else if (joy_y < 1000) {
+            if (is_working && work_time > 60) {
+                work_time -= 60;
+                time_left = work_time;
+            } else if (!is_working && break_time > 60) {
+                break_time -= 60;
+                time_left = break_time;
+            }
+            sleep_ms(300);
         }
-        sleep_ms(300);
-    } else if (joy_y < 1000) {
-        if (is_working && work_time > 60) {
-            work_time -= 60;
-            time_left = work_time;
-        } else if (!is_working && break_time > 60) {
-            break_time -= 60;
-            time_left = break_time;
-        }
-        sleep_ms(300);
     }
 }
 
