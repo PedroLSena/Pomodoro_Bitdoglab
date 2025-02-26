@@ -72,16 +72,19 @@ void button_irq(uint gpio, uint32_t events) {
 }
 
 void play_buzzer() {
-    gpio_set_function(BUZZER_PIN, GPIO_FUNC_PWM);
+    gpio_set_function(BUZZER_PIN, GPIO_FUNC_PWM);  // Configura o pino do buzzer para PWM
     uint slice_num = pwm_gpio_to_slice_num(BUZZER_PIN);
-    
-    pwm_set_wrap(slice_num, 12500);
-    pwm_set_clkdiv(slice_num, 64.0);
-    pwm_set_gpio_level(BUZZER_PIN, 6250);
-    pwm_set_enabled(slice_num, true);
-    
-    sleep_ms(500);
-    pwm_set_enabled(slice_num, false);
+
+    pwm_set_wrap(slice_num, 12500);                /
+    pwm_set_clkdiv(slice_num, 64.0);               
+    pwm_set_gpio_level(BUZZER_PIN, 6250);          
+    pwm_set_enabled(slice_num, true);              
+
+    sleep_ms(500);  
+
+    pwm_set_enabled(slice_num, false);            
+    gpio_set_function(BUZZER_PIN, GPIO_FUNC_SIO); 
+    gpio_put(BUZZER_PIN, 0);                      
 }
 
 void check_joystick() {
